@@ -1,0 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Colors */
+  --primary: #A8D5BA; /* Pastel Green */
+  --primary-dark: #8FB79D;
+  --primary-light: #C5E6D2;
+  --secondary: #2D3436; /* Dark slate for text/accents */
+  --accent: #F9FDF9; /* Very light subtle green background */
+  
+  --bg-white: #FFFFFF;
+  --bg-pastel: #F0F7F0;
+  
+  --text-main: #1A1A1A;
+  --text-muted: #636E72;
+  --text-on-primary: #1A1A1A;
+  
+  --border: #E1E8E1;
+  --shadow: rgba(0, 0, 0, 0.05);
+  --shadow-lg: rgba(0, 0, 0, 0.1);
+
+  /* Typography */
+  --font-main: 'Inter', sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+
+  /* Layout */
+  --header-height: 70px;
+  --sidebar-width: 260px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  
+  transition: all 0.3s ease;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-white);
+  color: var(--text-main);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  color: var(--secondary);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.2s;
+}
+
+a:hover {
+  opacity: 0.8;
+}
+
+button {
+  font-family: var(--font-main);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Glassmorphism utilities */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Button styles */
+.btn {
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: var(--text-on-primary);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.btn-outline {
+  background-color: transparent;
+  border: 2px solid var(--primary);
+  color: var(--secondary);
+}
+
+.btn-outline:hover {
+  background-color: var(--primary-light);
+}
+
+/* Transitions */
+.fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

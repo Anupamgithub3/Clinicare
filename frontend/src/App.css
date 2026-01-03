@@ -1,0 +1,17 @@
+/* Main App styles */
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-wrapper {
+  flex: 1;
+  background: var(--bg-pastel);
+}
+
+.main-content {
+  padding-top: calc(var(--header-height) + 2rem);
+  padding-bottom: 2rem;
+}
