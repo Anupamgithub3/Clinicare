@@ -1,33 +1,38 @@
 const express = require('express');
-const cors = require('cors');
+
 
 const app = express();
 
 /* -------------------- CORS CONFIG -------------------- */
 
+const cors = require('cors');
+
 const allowedOrigins = [
   'https://clinicare-frontend.onrender.com',
-  'https://clinicare-1.onrender.com',
+  'https://clinicare1.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000',
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow Postman / curl
+    // allow requests with no origin (Render, curl, Postman)
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
-    return callback(new Error('CORS not allowed'));
+    return callback(null, true); // ⬅ IMPORTANT: do NOT hard-fail on Render
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Preflight requests
+// 🔥 Explicit preflight support
 app.options('*', cors());
+
 
 /* -------------------- MIDDLEWARE -------------------- */
 
