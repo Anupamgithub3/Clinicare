@@ -1,21 +1,21 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL + '/api',
 });
 
 // Add a request interceptor to include JWT token
 api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
 export default api;
