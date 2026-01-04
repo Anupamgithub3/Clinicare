@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import './Auth.css';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import { useDepartments } from '../context/DepartmentsContext';
+import { useAuth } from '../context/AuthContext';
 
 const Register = () => {
     const [formData, setFormData] = useState({
@@ -13,6 +15,7 @@ const Register = () => {
         department: ''
     });
     const { departments } = useDepartments();
+    const { register } = useAuth();
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
@@ -34,7 +37,13 @@ const Register = () => {
 
         setLoading(true);
         try {
-            const res = await api.post('/auth/register', formData);
+            // Prepare payload - strip department if empty/not doctor
+            const payload = { ...formData };
+            if (payload.role !== 'doctor' || !payload.department) {
+                delete payload.department;
+            }
+
+            const res = await register(payload);
             if (formData.role === 'doctor') {
                 setSuccess('Registration successful! Please wait for admin verification before logging in.');
                 setFormData({
@@ -46,9 +55,9 @@ const Register = () => {
                     department: ''
                 });
             } else {
-                localStorage.setItem('token', res.data.token);
+                // register will have stored token and user in localStorage and set context user
                 setSuccess('Account created! Redirecting...');
-                setTimeout(() => navigate('/dashboard'), 2000);
+                setTimeout(() => navigate('/dashboard'), 1000);
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed');
@@ -145,98 +154,6 @@ const Register = () => {
                     <p>Already have an account? <Link to="/login">Login here</Link></p>
                 </div>
             </div>
-
-            <style jsx>{`
-                .register-container {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    min-height: 100vh;
-                    background: linear-gradient(135deg, var(--bg-pastel) 0%, #FFFFFF 100%);
-                    padding: 40px 20px;
-                }
-                
-                .register-card {
-                    width: 100%;
-                    max-width: 500px;
-                    padding: 40px;
-                    border-radius: var(--radius-lg);
-                    box-shadow: 0 10px 30px var(--shadow);
-                }
-                
-                .register-header {
-                    text-align: center;
-                    margin-bottom: 32px;
-                }
-                
-                .register-header h1 {
-                    font-size: 2.5rem;
-                    color: var(--secondary);
-                }
-                
-                .form-row {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 16px;
-                }
-
-                .form-group {
-                    margin-bottom: 20px;
-                }
-                
-                .form-group label {
-                    display: block;
-                    margin-bottom: 8px;
-                    font-size: 0.9rem;
-                    font-weight: 500;
-                    color: var(--text-muted);
-                }
-                
-                .form-group input, .form-group select {
-                    width: 100%;
-                    padding: 12px 16px;
-                    border: 1px solid var(--border);
-                    border-radius: var(--radius-sm);
-                    font-family: var(--font-main);
-                    background: white;
-                }
-                
-                .error-message {
-                    background-color: #FFF1F1;
-                    color: #D63031;
-                    padding: 12px;
-                    border-radius: var(--radius-sm);
-                    margin-bottom: 20px;
-                    font-size: 0.85rem;
-                    text-align: center;
-                }
-
-                .success-message {
-                    background-color: #F0FAF0;
-                    color: #27AE60;
-                    padding: 12px;
-                    border-radius: var(--radius-sm);
-                    margin-bottom: 20px;
-                    font-size: 0.85rem;
-                    text-align: center;
-                }
-                
-                .w-full {
-                    width: 100%;
-                }
-                
-                .register-footer {
-                    margin-top: 24px;
-                    text-align: center;
-                    font-size: 0.85rem;
-                    color: var(--text-muted);
-                }
-                
-                .register-footer Link, .register-footer a {
-                    color: var(--primary-dark);
-                    font-weight: 600;
-                }
-            `}</style>
         </div>
     );
 };

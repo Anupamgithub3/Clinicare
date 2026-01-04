@@ -3,7 +3,9 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL
     ? import.meta.env.VITE_API_BASE_URL + '/api'
-    : 'https://clinicare-1.onrender.com/api',
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? '/api'
+      : 'https://clinicare-1.onrender.com/api',
 });
 
 // Add a request interceptor to include JWT token

@@ -35,6 +35,18 @@ export const AuthProvider = ({ children }) => {
         return user;
     };
 
+    const register = async (formData) => {
+        const response = await api.post('/auth/register', formData);
+        // If backend returns token and user (for non-doctor or already verified accounts), persist them
+        const { token, user } = response.data;
+        if (token && user && (user.role !== 'doctor' || user.isVerified)) {
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
+            setUser(user);
+        }
+        return response.data;
+    };
+
     const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -42,7 +54,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, logout }}>
+        <AuthContext.Provider value={{ user, loading, login, register, logout }}>
             {children}
         </AuthContext.Provider>
     );

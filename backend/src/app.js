@@ -46,7 +46,10 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/chat', require('./routes/chat.routes'));
-// other routes...
+app.use('/api/admin', require('./routes/admin.routes'));
+app.use('/api/departments', require('./routes/department.routes'));
+app.use('/api/doctors', require('./routes/doctor.routes'));
+app.use('/api/pharmacy', require('./routes/pharmacy.routes'));
 
 /* -------------------- EXPORT -------------------- */
 

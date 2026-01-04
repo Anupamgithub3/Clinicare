@@ -1,119 +1,218 @@
-const jwt = require('jsonwebtoken');
 const User = require('../models/user');
+const jwt = require('jsonwebtoken');
 
-// Generate JWT Token
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
-  });
+/* -------------------------------------------------- */
+/* Utility */
+/* -------------------------------------------------- */
+const generateToken = (user) => {
+  const secret = process.env.JWT_SECRET || 'clinicare-dev-secret';
+  if (!process.env.JWT_SECRET) {
+    console.warn('WARNING: JWT_SECRET is not set. Using development fallback secret. Set JWT_SECRET in your environment for production.');
+  }
+  try {
+    return jwt.sign({ id: user._id, role: user.role }, secret, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    });
+  } catch (err) {
+    console.error('JWT SIGN ERROR:', err);
+    throw new Error('Failed to generate authentication token');
+  }
 };
 
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
-const register = async (req, res) => {
+/* -------------------------------------------------- */
+/* REGISTER */
+/* -------------------------------------------------- */
+exports.register = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, role, department } = req.body;
+    const {
+      email,
+      password,
+      role,
+      userType,
+      accountType,
+      firstName,
+      lastName,
+      ...rest
+    } = req.body;
 
-    // Check if user exists
-    const userExists = await User.findOne({ email });
-    if (userExists) {
+    if (!email || !password) {
       return res.status(400).json({
+        success: false,
+        message: 'Email and password are required',
+      });
+    }
+
+    // 🔥 Normalize role from frontend
+    const normalizedRole = (role || userType || accountType || 'patient')
+      .toString()
+      .toLowerCase();
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({
         success: false,
         message: 'User already exists',
       });
     }
 
-    // Determine verification status
-    // Doctors need verification (isVerified: false), Patients don't (isVerified: true)
-    const isVerified = role !== 'doctor';
+    console.log('REGISTER PAYLOAD:', { email, role: normalizedRole, firstName, lastName, department: rest.department });
 
-    // Create user
     const user = await User.create({
-      firstName,
-      lastName,
-      name: `${firstName} ${lastName}`, // Maintain legacy name field
       email,
       password,
-      role: role || 'patient',
-      department: role === 'doctor' ? department : undefined,
-      isVerified
+      role: normalizedRole,
+      firstName,
+      lastName,
+      ...rest,
+      isVerified: normalizedRole === 'doctor' ? false : true,
     });
 
-    // Only generate token if verified (patients)
-    let token = null;
-    if (user.isVerified) {
-      token = generateToken(user._id);
-    }
+    const token = generateToken(user);
 
     res.status(201).json({
       success: true,
+      message: 'Registration successful',
       token,
-      message: user.isVerified
-        ? 'Registration successful'
-        : 'Registration successful. Please wait for admin verification before logging in.',
       user: {
         id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
         email: user.email,
         role: user.role,
-        isVerified: user.isVerified
+        isVerified: user.isVerified,
       },
     });
   } catch (error) {
+    console.error('REGISTER ERROR:', error);
+    // Duplicate key (e.g., unique email)
+    if (error.code === 11000 && error.keyValue) {
+      const field = Object.keys(error.keyValue)[0];
+      return res.status(409).json({
+        success: false,
+        message: `${field} already exists`,
+      });
+    }
+
+    // Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message).join('. ');
+      return res.status(400).json({ success: false, message: messages });
+    }
+
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || 'Registration failed',
     });
   }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
-const login = async (req, res) => {
+/* -------------------------------------------------- */
+/* LOGIN */
+/* -------------------------------------------------- */
+exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    console.log('LOGIN ATTEMPT:', { email });
 
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide email and password',
+        message: 'Email and password are required',
       });
     }
 
     const user = await User.findOne({ email }).select('+password');
 
-    if (!user || !(await user.comparePassword(password))) {
+    if (!user) {
+      console.log('LOGIN FAILURE - user not found for:', email);
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials',
       });
     }
 
-    // Check verification status
-    if (!user.isVerified) {
+    if (!user.isActive) {
       return res.status(403).json({
         success: false,
-        message: 'Your account is pending admin verification. Please try again later.',
+        message: 'Account is deactivated',
       });
     }
 
-    const token = generateToken(user._id);
+    if (user.role === 'doctor' && !user.isVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Doctor account is not verified yet',
+      });
+    }
+
+    let isMatch = false;
+    try {
+      isMatch = await user.comparePassword(password);
+    } catch (err) {
+      console.error('PASSWORD COMPARE ERROR for', email, err);
+      return res.status(500).json({ success: false, message: 'Authentication error' });
+    }
+
+    if (!isMatch) {
+      console.log('LOGIN FAILURE - invalid password for:', email);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+      });
+    }
+
+    const token = generateToken(user);
 
     res.status(200).json({
       success: true,
+      message: 'Login successful',
       token,
       user: {
         id: user._id,
-        name: user.firstName ? (user.firstName + ' ' + (user.lastName || '')) : user.name,
         email: user.email,
         role: user.role,
+        isVerified: user.isVerified,
       },
+    });
+  } catch (error) {
+    console.error('LOGIN ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Login failed',
+    });
+  }
+};
+
+/* -------------------------------------------------- */
+/* GET ME */
+/* -------------------------------------------------- */
+exports.getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* -------------------------------------------------- */
+/* UPDATE PROFILE */
+/* -------------------------------------------------- */
+exports.updateProfile = async (req, res) => {
+  try {
+    const fieldsToUpdate = {
+      name: req.body.name,
+      phone: req.body.phone,
+      dateOfBirth: req.body.dateOfBirth,
+    };
+
+    const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
+      new: true,
+      runValidators: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      user,
     });
   } catch (error) {
     res.status(500).json({
@@ -123,10 +222,10 @@ const login = async (req, res) => {
   }
 };
 
-// @desc    Verify/Approve a doctor (Admin only)
-// @route   PUT /api/auth/verify/:id
-// @access  Private/Admin
-const verifyDoctor = async (req, res) => {
+/* -------------------------------------------------- */
+/* VERIFY DOCTOR (ADMIN) */
+/* -------------------------------------------------- */
+exports.verifyDoctor = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -160,10 +259,10 @@ const verifyDoctor = async (req, res) => {
   }
 };
 
-// @desc    Get pending verifications (Admin only)
-// @route   GET /api/auth/pending-verifications
-// @access  Private/Admin
-const getPendingVerifications = async (req, res) => {
+/* -------------------------------------------------- */
+/* GET PENDING VERIFICATIONS (ADMIN) */
+/* -------------------------------------------------- */
+exports.getPendingVerifications = async (req, res) => {
   try {
     const pendingDoctors = await User.find({
       role: 'doctor',
@@ -181,60 +280,3 @@ const getPendingVerifications = async (req, res) => {
     });
   }
 };
-
-// @desc    Get current logged in user
-// @route   GET /api/auth/me
-// @access  Private
-const getMe = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-
-    res.status(200).json({
-      success: true,
-      user,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// @desc    Update user profile
-// @route   PUT /api/auth/profile
-// @access  Private
-const updateProfile = async (req, res) => {
-  try {
-    const fieldsToUpdate = {
-      name: req.body.name,
-      phone: req.body.phone,
-      dateOfBirth: req.body.dateOfBirth,
-    };
-
-    const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
-      new: true,
-      runValidators: true,
-    });
-
-    res.status(200).json({
-      success: true,
-      user,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-module.exports = {
-  register,
-  login,
-  getMe,
-  updateProfile,
-  verifyDoctor,
-  getPendingVerifications
-};
-
